@@ -1,0 +1,27 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: "default"
+  group_by: ["alertname", "provider", "agent_id"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - match:
+        severity: critical
+      receiver: "default"
+      repeat_interval: 15m
+
+receivers:
+  - name: "default"
+    webhook_configs:
+      - url: "http://app:8000/alerts/webhook"
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ["provider", "model"]

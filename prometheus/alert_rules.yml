@@ -1,0 +1,64 @@
+groups:
+  - name: llm_cost_alerts
+    interval: 30s
+    rules:
+      - alert: LLMCostSpike
+        expr: |
+          (
+            rate(llm_cost_dollars_total[5m])
+            /
+            rate(llm_cost_dollars_total[1h] offset 5m)
+          ) > 3
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cost spike on {{ $labels.provider }}/{{ $labels.model }}"
+          description: "Current 5m rate is {{ $value | humanize }}x the 1h baseline."
+
+      - alert: LLMHighCostPerRequest
+        expr: |
+          (
+            rate(llm_cost_dollars_total[5m])
+            /
+            rate(llm_requests_total{status="success"}[5m])
+          ) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High cost-per-request on {{ $labels.agent_id }}"
+          description: "Cost per request = ${{ $value | humanize }}. Threshold $0.05."
+
+      - alert: LLMHighErrorRate
+        expr: |
+          (
+            rate(llm_requests_total{status="error"}[5m])
+            /
+            rate(llm_requests_total[5m])
+          ) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Error rate > 10% on {{ $labels.provider }}"
+          description: "Error rate = {{ $value | humanizePercentage }}."
+
+      - alert: LLMHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(llm_request_duration_seconds_bucket[5m])) > 30
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency > 30s on {{ $labels.model }}"
+          description: "p95 = {{ $value | humanizeDuration }}."
+
+      - alert: LLMContextWindowSaturation
+        expr: llm_context_window_utilization_ratio > 0.85
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Context window > 85% on {{ $labels.agent_id }}"
+          description: "Utilization = {{ $value | humanizePercentage }}. Risk of truncation."
